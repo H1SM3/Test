@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<title>Car Parking Shop - Auth</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body{font-family:Arial;background:#05050a;color:#fff;}
+.box{max-width:400px;margin:50px auto;padding:20px;background:#0e0e18;border-radius:12px;box-shadow:0 0 20px #00ffd5;}
+h2{text-align:center;color:#00ffd5;}
+input,button{width:100%;margin:8px 0;padding:10px;border-radius:8px;border:none;}
+button{background:linear-gradient(90deg,#00ffd5,#ff2fd5);cursor:pointer;font-weight:bold;color:#fff;}
+.hidden{display:none;}
+</style>
+</head>
+<body>
+
+<div class="box">
+  <div id="login">
+    <h2>Login</h2>
+    <input id="loginEmail" placeholder="Email">
+    <input id="loginPass" type="password" placeholder="Şifrə">
+    <button onclick="login()">Daxil ol</button>
+    <div style="text-align:center;cursor:pointer;color:#aaa;" onclick="showRegister()">Hesabın yoxdur?</div>
+  </div>
+
+  <div id="register" class="hidden">
+    <h2>Register</h2>
+    <input id="regEmail" placeholder="Email">
+    <input id="regPass" type="password" placeholder="Şifrə">
+    <button onclick="register()">Qeydiyyat</button>
+    <div style="text-align:center;cursor:pointer;color:#aaa;" onclick="showLogin()">Hesabın var?</div>
+  </div>
+
+  <div id="dash" class="hidden">
+    <h2>Dashboard</h2>
+    <div>Balans: <span id="bal">0</span> AZN</div>
+    <input id="promoInput" placeholder="Promokod">
+    <button onclick="usePromo()">Promo istifadə et</button>
+    <h3>Shop</h3>
+    <button onclick="order('50M Pul','1')">50M Pul - 1 AZN</button>
+    <button onclick="order('100M Pul','2')">100M Pul - 2 AZN</button>
+    <br><br>
+    <button onclick="logout()">Çıxış</button>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, addDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA1bfhCIpafhaAsIkw3Rfl9E2dxGFtAthA",
+  authDomain: "car-parking-shop.firebaseapp.com",
+  projectId: "car-parking-shop",
+  storageBucket: "car-parking-shop.firebasestorage.app",
+  messagingSenderId: "39076120087",
+  appId: "1:39076120087:web:d100c5d0dbe13340d1be52"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const loginDiv = document.getElementById('login');
+const registerDiv = document.getElementById('register');
+const dashDiv = document.getElementById('dash');
+
+function showRegister(){loginDiv.style.display='none';registerDiv.style.display='block';}
+function showLogin(){registerDiv.style.display='none';loginDiv.style.display='block';}
+
+function register(){
+  createUserWithEmailAndPassword(auth, document.getElementById('regEmail').value, document.getElementById('regPass').value)
+  .then(res=>{
+    setDoc(doc(db,'users',res.user.uid), {balance:0, usedPromos:{}});
+  }).catch(e=>alert(e.message));
+}
+
+function login(){
+  signInWithEmailAndPassword(auth, document.getElementById('loginEmail').value, document.getElementById('loginPass').value)
+  .catch(e=>alert(e.message));
+}
+
+onAuthStateChanged(auth,u=>{
+  if(u){
+    loginDiv.style.display = registerDiv.style.display = 'none';
+    dashDiv.style.display='block';
+    const userRef = doc(db,'users',u.uid);
+    onSnapshot(userRef,s=>{
+      document.getElementById('bal').innerText = s.data()?.balance || 0;
+    });
+  } else {
+    dashDiv.style.display='none';
+    loginDiv.style.display='block';
+  }
+});
+
+function usePromo(){
+  const code = document.getElementById('promoInput').value.trim();
+  const u = auth.currentUser;
+  if(!u) { alert('Login edin'); return; }
+  const userRef = doc(db,'users',u.uid);
+  getDoc(userRef).then(docSnap=>{
+    const data = docSnap.data();
+    if(data.usedPromos?.[code]) return alert("Promo artıq istifadə olunub");
+    getDoc(doc(db,'promos',code)).then(p=>{
+      if(!p.exists()) return alert("Promo tapılmadı");
+      const amt = p.data().amount;
+      updateDoc(userRef,{
+        balance:(data.balance||0)+amt,
+        [`usedPromos.${code}`]:true
+      });
+      alert("Promo aktiv edildi +"+amt+" AZN");
+      document.getElementById('promoInput').value='';
+    });
+  });
+}
+
+function order(name,priceText){
+  const u = auth.currentUser;
+  if(!u){alert("Login edin"); return;}
+  const price = parseFloat(priceText);
+  const userRef = doc(db,'users',u.uid);
+  getDoc(userRef).then(docSnap=>{
+    const bal = docSnap.data()?.balance || 0;
+    if(bal<price){alert("Balans kifayət etmir"); return;}
+    updateDoc(userRef,{balance:bal-price});
+    addDoc(collection(db,'orders'),{
+      uid:u.uid,
+      item:name,
+      price,
+      type:'balance',
+      timestamp:Date.now()
+    });
+    window.open("https://wa.me/994554560595?text="+encodeURIComponent(`Order: ${name} (${priceText} AZN)\nPayment: balance`));
+  });
+}
+
+function logout(){signOut(auth);}
+</script>
+</body>
+</html>
