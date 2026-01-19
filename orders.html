@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<title>Orders</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body{background:#05050a;color:#fff;font-family:Arial;}
+.container{max-width:600px;margin:50px auto;padding:20px;background:#0e0e18;border-radius:12px;box-shadow:0 0 20px #00ffd5;}
+h2{text-align:center;color:#00ffd5;}
+table{width:100%;border-collapse:collapse;}
+th,td{border:1px solid #00ffd5;padding:8px;text-align:center;}
+</style>
+</head>
+<body>
+<div class="container">
+<h2>Sifariş Tarixçəsi</h2>
+<table>
+<thead>
+<tr><th>Item</th><th>Price</th><th>Type</th><th>Timestamp</th></tr>
+</thead>
+<tbody id="ordersTable"></tbody>
+</table>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA1bfhCIpafhaAsIkw3Rfl9E2dxGFtAthA",
+  authDomain: "car-parking-shop.firebaseapp.com",
+  projectId: "car-parking-shop",
+  storageBucket: "car-parking-shop.firebasestorage.app",
+  messagingSenderId: "39076120087",
+  appId: "1:39076120087:web:d100c5d0dbe13340d1be52"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const table = document.getElementById('ordersTable');
+onSnapshot(collection(db,'orders'),snap=>{
+  table.innerHTML='';
+  snap.forEach(doc=>{
+    const d = doc.data();
+    const date = new Date(d.timestamp).toLocaleString();
+    table.innerHTML += `<tr><td>${d.item}</td><td>${d.price}</td><td>${d.type}</td><td>${date}</td></tr>`;
+  });
+});
+</script>
+</body>
+</html>
